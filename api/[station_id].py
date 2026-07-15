@@ -3,17 +3,39 @@ from http.server import BaseHTTPRequestHandler
 import urllib.request
 import urllib.error
 
-# Verified working Akamai live stream pools for global access
-STATIONS = {
-    "radio1": {"name": "BBC Radio 1", "pool": "pool_01505109", "slug": "bbc_radio_one"},
-    "radio1xtra": {"name": "BBC Radio 1Xtra", "pool": "pool_92079267", "slug": "bbc_1xtra"},
-    "radio2": {"name": "BBC Radio 2", "pool": "pool_74208725", "slug": "bbc_radio_two"},
-    "radio3": {"name": "BBC Radio 3", "pool": "pool_23461179", "slug": "bbc_radio_three"},
-    "radio4": {"name": "BBC Radio 4", "pool": "pool_55057080", "slug": "bbc_radio_fourfm"},
-    "radio4extra": {"name": "BBC Radio 4 Extra", "pool": "pool_26173715", "slug": "bbc_radio_four_extra"},
-    "radio5": {"name": "BBC Radio 5 Live", "pool": "pool_89021708", "slug": "bbc_radio_five_live"},
-    "6music": {"name": "BBC Radio 6 Music", "pool": "pool_81827798", "slug": "bbc_6music"}
+# BBC Stations - Verified working Akamai live stream pools for global access
+BBC_STATIONS = {
+    "radio1": {"name": "BBC Radio 1", "pool": "pool_01505109", "slug": "bbc_radio_one", "type": "bbc"},
+    "radio1_anthems": {"name": "BBC Radio 1 Anthems", "pool": "pool_01505109", "slug": "bbc_radio_one_anthems", "type": "bbc"},
+    "radio1_dance": {"name": "BBC Radio 1 Dance", "pool": "pool_01505109", "slug": "bbc_radio_one_dance", "type": "bbc"},
+    "radio1xtra": {"name": "BBC Radio 1Xtra", "pool": "pool_92079267", "slug": "bbc_1xtra", "type": "bbc"},
+    "radio2": {"name": "BBC Radio 2", "pool": "pool_74208725", "slug": "bbc_radio_two", "type": "bbc"},
+    "radio3": {"name": "BBC Radio 3", "pool": "pool_23461179", "slug": "bbc_radio_three", "type": "bbc"},
+    "radio3_unwind": {"name": "BBC Radio 3 Unwind", "pool": "pool_23461179", "slug": "bbc_radio_three_unwind", "type": "bbc"},
+    "radio4_extra": {"name": "BBC Radio 4 Extra", "pool": "pool_55057080", "slug": "bbc_radio_four_extra", "type": "bbc"},
+    "radio5": {"name": "BBC Radio 5 Live", "pool": "pool_89021708", "slug": "bbc_radio_five_live", "type": "bbc"},
+    "6music": {"name": "BBC Radio 6 Music", "pool": "pool_81827798", "slug": "bbc_6music", "type": "bbc"},
+    "asian_network": {"name": "BBC Asian Network", "pool": "pool_01505109", "slug": "bbc_asian_network", "type": "bbc"},
+    "scotland": {"name": "BBC Radio Scotland", "pool": "pool_01505109", "slug": "bbc_radio_scotland_fm", "type": "bbc"},
+    "scotland_extra": {"name": "BBC Radio Scotland Extra", "pool": "pool_01505109", "slug": "bbc_radio_scotland_mw", "type": "bbc"},
+    "orkney": {"name": "BBC Radio Orkney", "pool": "pool_01505109", "slug": "bbc_radio_orkney", "type": "bbc"},
+    "shetland": {"name": "BBC Radio Shetland", "pool": "pool_01505109", "slug": "bbc_radio_shetland", "type": "bbc"},
+    "nan_gaidheal": {"name": "BBC Radio nan Gàidheal", "pool": "pool_01505109", "slug": "bbc_radio_nan_gaidheal", "type": "bbc"},
+    "ulster": {"name": "BBC Radio Ulster", "pool": "pool_01505109", "slug": "bbc_radio_ulster", "type": "bbc"},
+    "foyle": {"name": "BBC Radio Foyle", "pool": "pool_01505109", "slug": "bbc_radio_foyle", "type": "bbc"},
+    "wales": {"name": "BBC Radio Wales", "pool": "pool_01505109", "slug": "bbc_radio_wales_fm", "type": "bbc"},
+    "wales_extra": {"name": "BBC Radio Wales Extra", "pool": "pool_01505109", "slug": "bbc_radio_wales_am", "type": "bbc"},
+    "cymru": {"name": "BBC Radio Cymru", "pool": "pool_01505109", "slug": "bbc_radio_cymru", "type": "bbc"},
+    "cymru2": {"name": "BBC Radio Cymru 2", "pool": "pool_01505109", "slug": "bbc_radio_cymru_2", "type": "bbc"},
 }
+
+# Internet Radio Stations - direct streams
+INTERNET_STATIONS = {
+    "listen_moe": {"name": "Listen.moe", "url": "https://listen.moe/stream", "type": "direct"},
+}
+
+# Combine all stations
+STATIONS = {**BBC_STATIONS, **INTERNET_STATIONS}
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -33,6 +55,29 @@ class handler(BaseHTTPRequestHandler):
             return
         
         config = STATIONS[token]
+        station_type = config.get("type", "bbc")
+        
+        # Handle direct internet radio streams
+        if station_type == "direct":
+            self.send_response(200)
+            self.send_header('Content-type', 'application/vnd.apple.mpegurl')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.end_headers()
+            
+            # Return a simple m3u8 playlist pointing to the direct URL
+            m3u8_content = f"""#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:10
+#EXTINF:10.0,
+{config['url']}
+"""
+            self.wfile.write(m3u8_content.encode())
+            return
+        
+        # Handle BBC HLS stations
         slug = config['slug']
         pool = config['pool']
         
