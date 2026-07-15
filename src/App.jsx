@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const API_BASE = (import.meta.env.VITE_API_BASE || "https://sonicbridge.onrender.com").replace(/\/+$/, "");
+const API_BASE = (import.meta.env.VITE_API_BASE || "/api").replace(/\/+$/, "");
 
 // Decorative dial numbers only - not real broadcast frequencies. Gives each
 // card the "tuner" feel the rest of the UI is built around.
@@ -113,7 +113,7 @@ export default function App() {
         {status === "error" && (
           <p className="status-msg status-error">
             Couldn't reach the backend at <code>{API_BASE}</code>. Set{" "}
-            <code>VITE_API_BASE</code> to your deployed Render URL.
+            <code>VITE_API_BASE</code> to your backend URL.
           </p>
         )}
 
