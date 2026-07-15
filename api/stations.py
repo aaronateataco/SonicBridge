@@ -29,7 +29,7 @@ class handler(BaseHTTPRequestHandler):
                 "id": token,
                 "name": config["name"],
                 "description": f"Live {config['name']} stream",
-                "image": f"https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=600&q=80"
+                "image": f"https://sounds.files.bbci.co.uk/3.9.4/networks/{config['slug']}/colour_default.svg"
             })
         
         import json

@@ -33,25 +33,39 @@ class handler(BaseHTTPRequestHandler):
             return
         
         config = STATIONS[token]
+        slug = config['slug']
+        pool = config['pool']
         
-        # Build the BBC stream URL
-        # This is the actual Akamai stream endpoint that BBC uses
-        stream_url = f"https://a.files.bbci.co.uk/mediaconnection/live/akamai/{config['pool']}/output/index.m3u"
+        # Direct HLS endpoint - returns m3u8 playlist with segment URLs
+        # Browser will fetch segments directly from BBC's CDN, avoiding timeouts
+        hls_url = f"http://as-hls-ww-live.akamaized.net/{pool}/live/ww/{slug}/{slug}.isml/{slug}-audio=96000.norewind.m3u8"
         
         try:
-            # Fetch the actual stream URL
-            with urllib.request.urlopen(stream_url, timeout=10) as response:
-                stream_data = response.read()
+            # Fetch the HLS playlist
+            req = urllib.request.Request(hls_url, headers={
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
+            })
+            with urllib.request.urlopen(req, timeout=10) as response:
+                playlist_data = response.read()
             
-            # Return the stream data
+            # Return the HLS playlist with proper headers
             self.send_response(200)
             self.send_header('Content-type', 'application/vnd.apple.mpegurl')
             self.send_header('Access-Control-Allow-Origin', '*')
-            self.send_header('Content-Length', len(stream_data))
+            self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Expires', '0')
+            self.send_header('Content-Length', len(playlist_data))
             self.end_headers()
-            self.wfile.write(stream_data)
+            self.wfile.write(playlist_data)
         except Exception as e:
-            self.send_error(502, f"Failed to fetch stream: {str(e)}")
+            self.send_response(502)
+            self.send_header('Content-type', 'text/plain')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(f"Failed to fetch stream: {str(e)}".encode())
     
     def do_OPTIONS(self):
         self.send_response(200)

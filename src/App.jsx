@@ -79,6 +79,7 @@ export default function App() {
     setCurrent(station);
     setIsBuffering(true);
     audio.src = streamUrl(station);
+    audio.crossOrigin = "anonymous";
     audio.play().catch(() => setIsBuffering(false));
   }
 
@@ -151,13 +152,24 @@ export default function App() {
       <footer className={`nowplaying${current ? " nowplaying-active" : ""}`}>
         <audio
           ref={audioRef}
+          onCanPlay={() => {
+            setIsBuffering(false);
+          }}
           onPlaying={() => {
             setIsPlaying(true);
             setIsBuffering(false);
           }}
           onPause={() => setIsPlaying(false)}
           onWaiting={() => setIsBuffering(true)}
-          onError={() => setIsBuffering(false)}
+          onStalled={() => setIsBuffering(true)}
+          onError={(e) => {
+            setIsBuffering(false);
+            console.error("Audio error:", e.currentTarget.error);
+          }}
+          onEnded={() => {
+            setIsPlaying(false);
+            setIsBuffering(false);
+          }}
         />
         {current ? (
           <>
