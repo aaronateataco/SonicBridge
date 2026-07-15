@@ -62,7 +62,7 @@ function LastfmModal({ isOpen, onClose, onConnect }) {
       <div className="disclaimer-modal" onClick={(e) => e.stopPropagation()}>
         <h2>🎵 Connect Last.fm</h2>
         <p>
-          Enable automatic scrobbling of your BBC Radio listening to Last.fm. Your play history will be saved to your profile.
+          Enable automatic scrobbling of your BBC Radio listening to Last.fm. Your play history will be saved to your profile!
         </p>
         <p>
           You'll need a Last.fm account. If you don't have one,{" "}
