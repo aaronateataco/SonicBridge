@@ -1,12 +1,10 @@
 import asyncio
-import os
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# Enable CORS so other apps/websites can access your streams if needed
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -15,35 +13,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Active BBC Radio station slugs for global Akamai streams
+# Verified working Akamai live stream pools for global access
 STATIONS = {
-    "radio1": {"name": "BBC Radio 1", "slug": "bbc_radio_one"},
-    "radio1xtra": {"name": "BBC Radio 1Xtra", "slug": "bbc_1xtra"},
-    "radio2": {"name": "BBC Radio 2", "slug": "bbc_radio_two"},
-    "radio3": {"name": "BBC Radio 3", "slug": "bbc_radio_three"},
-    "radio4": {"name": "BBC Radio 4", "slug": "bbc_radio_fourfm"},
-    "radio4extra": {"name": "BBC Radio 4 Extra", "slug": "bbc_radio_four_extra"},
-    "radio5": {"name": "BBC Radio 5 Live", "slug": "bbc_radio_five_live"},
-    "6music": {"name": "BBC Radio 6 Music", "slug": "bbc_6music"}
+    "radio1": {"name": "BBC Radio 1", "pool": "pool_01505109", "slug": "bbc_radio_one"},
+    "radio1xtra": {"name": "BBC Radio 1Xtra", "pool": "pool_92079267", "slug": "bbc_1xtra"},
+    "radio2": {"name": "BBC Radio 2", "pool": "pool_74208725", "slug": "bbc_radio_two"},
+    "radio3": {"name": "BBC Radio 3", "pool": "pool_23461179", "slug": "bbc_radio_three"},
+    "radio4": {"name": "BBC Radio 4", "pool": "pool_55057080", "slug": "bbc_radio_fourfm"},
+    "radio4extra": {"name": "BBC Radio 4 Extra", "pool": "pool_26173715", "slug": "bbc_radio_four_extra"},
+    "radio5": {"name": "BBC Radio 5 Live", "pool": "pool_89021708", "slug": "bbc_radio_five_live"},
+    "6music": {"name": "BBC Radio 6 Music", "pool": "pool_81827798", "slug": "bbc_6music"}
 }
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return "<h1>📻 BBC Radio FLAC Proxy Online</h1><p>Append /radio1.flac to the URL to stream.</p>"
+    return "<h1>📻 BBC Radio Stream Proxy Online</h1><p>Append /radio1 to the URL to stream.</p>"
 
-@app.get("/{station_token}.flac")
+# This captures requests matching /radio1, /radio1.flac, or /radio1.ogg smoothly
+@app.get("/{station_token}")
 async def stream_radio(station_token: str):
-    token = station_token.lower()
+    # Strip any trailing file extensions to match our dictionary keys
+    token = station_token.lower().replace(".flac", "").replace(".ogg", "")
+    
     if token not in STATIONS:
-        raise HTTPException(status_code=404, detail=f"Station '{station_token}' not found")
+        raise HTTPException(status_code=404, detail=f"Station '{token}' not found")
         
+    pool = STATIONS[token]["pool"]
     slug = STATIONS[token]["slug"]
     
-    # Live Akamai high-quality streams
-    hls_url = f"http://as-hls-ww-live.akamaized.net/pool_904/live/ww/{slug}/{slug}.isml/{slug}-audio=96000.norewind.m3u8"
+    # Absolute direct Akamai HLS endpoint
+    hls_url = f"http://as-hls-ww-live.akamaized.net/{pool}/live/ww/{slug}/{slug}.isml/{slug}-audio=96000.norewind.m3u8"
     
-    # ffmpeg command to convert incoming stream directly into FLAC on the fly
-    cmd = ['ffmpeg', '-i', hls_url, '-c:a', 'flac', '-f', 'flac', 'pipe:1']
+    # Transcode HLS source into high-fidelity FLAC encased in an Ogg stream container
+    cmd = ['ffmpeg', '-i', hls_url, '-c:a', 'flac', '-f', 'ogg', 'pipe:1']
     
     async def generate_chunks():
         process = await asyncio.create_subprocess_exec(
@@ -55,7 +57,7 @@ async def stream_radio(station_token: str):
                 if not chunk:
                     break
                 yield chunk
-                await asyncio.sleep(0) # keeps the event loop non-blocking
+                await asyncio.sleep(0)
         except Exception:
             pass
         finally:
@@ -67,6 +69,6 @@ async def stream_radio(station_token: str):
                 
     return StreamingResponse(
         generate_chunks(),
-        media_type="audio/flac",
+        media_type="audio/ogg",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
     )
