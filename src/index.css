@@ -386,3 +386,145 @@ body {
     font-size: 0.9rem;
   }
 }
+
+/* Legal & Disclaimer Styles */
+.disclaimer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.disclaimer-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.disclaimer-modal h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+  color: var(--text);
+}
+
+.disclaimer-modal p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 0 1rem;
+}
+
+.disclaimer-modal strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.disclaimer-modal ul {
+  margin: 0 0 1rem 1.5rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.disclaimer-modal li {
+  margin-bottom: 0.5rem;
+}
+
+.disclaimer-modal a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.disclaimer-modal a:hover {
+  text-decoration: underline;
+}
+
+.disclaimer-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.disclaimer-btn {
+  flex: 1;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.disclaimer-btn:hover {
+  box-shadow: 0 4px 12px rgba(0, 97, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.disclaimer-btn:active {
+  transform: translateY(0);
+}
+
+.disclaimer-link {
+  flex: 1;
+  background: var(--surface-dim);
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.disclaimer-link:hover {
+  background: var(--border);
+  text-decoration: none;
+}
+
+.legal-footer {
+  position: fixed;
+  bottom: 4.5rem;
+  left: 0;
+  right: 0;
+  background: var(--accent-bg);
+  border-top: 1px solid var(--border);
+  padding: 0.75rem 1.5rem;
+  font-size: 0.8rem;
+  z-index: 100;
+}
+
+.legal-footer p {
+  margin: 0;
+  color: var(--accent);
+}
+
+.legal-footer a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.legal-footer a:hover {
+  text-decoration: underline;
+}

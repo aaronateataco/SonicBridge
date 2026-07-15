@@ -31,6 +31,47 @@ function StreamUrlRow({ url }) {
   );
 }
 
+function LicenceDisclaimer({ onAccept }) {
+  return (
+    <div className="disclaimer-overlay">
+      <div className="disclaimer-modal">
+        <h2>📻 TV Licence Required</h2>
+        <p>
+          In the United Kingdom, you must have a valid TV Licence to watch or listen to <strong>any live TV or radio</strong> on <strong>any channel or service</strong>, including BBC Radio via this application.
+        </p>
+        <p>
+          A TV Licence also covers:
+        </p>
+        <ul>
+          <li>Watching or recording live programmes on any channel</li>
+          <li>Watching on-demand programmes on BBC iPlayer</li>
+          <li>Listening to BBC radio (live or on-demand)</li>
+        </ul>
+        <p>
+          <strong>You are committing an offence if you watch or record any live television or use BBC iPlayer without a TV Licence.</strong>
+        </p>
+        <p>
+          You can check if you need a licence and purchase one at{" "}
+          <a href="https://www.tvlicensing.co.uk" target="_blank" rel="noopener noreferrer">
+            tvlicensing.co.uk
+          </a>
+        </p>
+        <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "1.5rem" }}>
+          If you are outside the UK, you may use this service without a TV Licence according to your local broadcasting regulations.
+        </p>
+        <div className="disclaimer-actions">
+          <button className="disclaimer-btn" onClick={onAccept}>
+            I Have a Valid TV Licence
+          </button>
+          <a href="https://www.tvlicensing.co.uk" target="_blank" rel="noopener noreferrer" className="disclaimer-link">
+            Get a TV Licence
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [stations, setStations] = useState([]);
   const [status, setStatus] = useState("loading"); // loading | ready | error
@@ -38,9 +79,27 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [volume, setVolume] = useState(0.9);
+  const [licenceAccepted, setLicenceAccepted] = useState(false);
   const audioRef = useRef(null);
+  const retryTimeoutRef = useRef(null);
+  const retryCountRef = useRef(0);
+
+  // Check for licence acceptance on mount
+  useEffect(() => {
+    const accepted = localStorage.getItem("sonicbridge_licence_accepted");
+    if (accepted === "true") {
+      setLicenceAccepted(true);
+    }
+  }, []);
+
+  const handleLicenceAccept = () => {
+    localStorage.setItem("sonicbridge_licence_accepted", "true");
+    setLicenceAccepted(true);
+  };
 
   useEffect(() => {
+    if (!licenceAccepted) return;
+    
     let cancelled = false;
     fetch(`${API_BASE}/stations`)
       .then((r) => {
@@ -58,38 +117,98 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [licenceAccepted]);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
   }, [volume]);
+
+  // Cleanup retries on unmount or station change
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, [current]);
 
   const streamUrl = useMemo(
     () => (station) => `${API_BASE}/${station.id}`,
     []
   );
 
+  const retryPlayback = (station) => {
+    const audio = audioRef.current;
+    if (!audio || !station) return;
+    
+    const maxRetries = 5;
+    const retryDelay = Math.min(1000 * Math.pow(1.5, retryCountRef.current), 10000);
+    
+    if (retryCountRef.current < maxRetries) {
+      retryCountRef.current += 1;
+      retryTimeoutRef.current = setTimeout(() => {
+        if (audio.paused && isPlaying) {
+          console.log(`Retrying playback (attempt ${retryCountRef.current}/${maxRetries})...`);
+          audio.src = streamUrl(station);
+          audio.crossOrigin = "anonymous";
+          audio.play().catch(() => {
+            setIsBuffering(false);
+            retryPlayback(station);
+          });
+        }
+      }, retryDelay);
+    } else {
+      setIsBuffering(false);
+      retryCountRef.current = 0;
+    }
+  };
+
   function play(station) {
     const audio = audioRef.current;
     if (!audio) return;
+    
+    // Clear any pending retries
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+    }
+    retryCountRef.current = 0;
+    
     if (current?.id === station.id) {
       togglePlay();
       return;
     }
     setCurrent(station);
+    setIsPlaying(true);
     setIsBuffering(true);
     audio.src = streamUrl(station);
     audio.crossOrigin = "anonymous";
-    audio.play().catch(() => setIsBuffering(false));
+    audio.play().catch(() => {
+      setIsBuffering(false);
+      retryPlayback(station);
+    });
   }
 
   function togglePlay() {
     const audio = audioRef.current;
     if (!audio || !current) return;
+    
+    // Clear retries on manual pause
+    if (!audio.paused) {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryCountRef.current = 0;
+      }
+    }
+    
     if (audio.paused) {
+      setIsPlaying(true);
       setIsBuffering(true);
-      audio.play().catch(() => setIsBuffering(false));
+      audio.play().catch(() => {
+        setIsBuffering(false);
+        retryPlayback(current);
+      });
     } else {
+      setIsPlaying(false);
       audio.pause();
     }
   }
@@ -109,7 +228,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="grid-wrap" style={{ paddingBottom: '6rem' }}>
+      <main className="grid-wrap" style={{ paddingBottom: '7rem' }}>
         {status === "loading" && <p className="status-msg">Tuning in…</p>}
         {status === "error" && (
           <p className="status-msg status-error">
@@ -154,22 +273,32 @@ export default function App() {
           ref={audioRef}
           onCanPlay={() => {
             setIsBuffering(false);
+            retryCountRef.current = 0;
           }}
           onPlaying={() => {
             setIsPlaying(true);
             setIsBuffering(false);
+            retryCountRef.current = 0;
           }}
-          onPause={() => setIsPlaying(false)}
-          onWaiting={() => setIsBuffering(true)}
-          onStalled={() => setIsBuffering(true)}
-          onError={(e) => {
-            setIsBuffering(false);
-            console.error("Audio error:", e.currentTarget.error);
-          }}
-          onEnded={() => {
+          onPause={() => {
             setIsPlaying(false);
-            setIsBuffering(false);
           }}
+          onWaiting={() => {
+            setIsBuffering(true);
+          }}
+          onStalled={() => {
+            setIsBuffering(true);
+          }}
+          onError={(e) => {
+            const error = e.currentTarget.error;
+            console.error("Audio error:", error?.code, error?.message);
+            setIsBuffering(false);
+            // Auto-retry on error instead of stopping
+            if (current && isPlaying) {
+              retryPlayback(current);
+            }
+          }}
+          crossOrigin="anonymous"
         />
         {current ? (
           <>
@@ -196,6 +325,13 @@ export default function App() {
           <span className="np-placeholder">Select a station to start listening</span>
         )}
       </footer>
+      <div className="legal-footer">
+        <p>
+          🇬🇧 <strong>UK Users:</strong> You must have a valid TV Licence to listen to BBC Radio.{" "}
+          <a href="https://www.tvlicensing.co.uk" target="_blank" rel="noopener noreferrer">Check here</a>
+        </p>
+      </div>
+      {!licenceAccepted && <LicenceDisclaimer onAccept={handleLicenceAccept} />}
     </div>
   );
 }
