@@ -27,7 +27,19 @@ STATIONS = {
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return "<h1>📻 BBC Radio Stream Proxy Online</h1><p>Append /radio1 to the URL to stream.</p>"
+    return "<h1>📻 BBC Radio Stream Proxy Online</h1><p>Use /stations for the station list or append /radio1 to the URL to stream.</p>"
+
+@app.get("/stations")
+async def list_stations():
+    stations = []
+    for token, config in STATIONS.items():
+        stations.append({
+            "id": token,
+            "name": config["name"],
+            "description": f"Live {config['name']} stream",
+            "image": f"https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=600&q=80"
+        })
+    return stations
 
 # This captures requests matching /radio1, /radio1.flac, or /radio1.ogg smoothly
 @app.get("/{station_token}")

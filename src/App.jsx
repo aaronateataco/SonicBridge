@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const API_BASE = (import.meta.env.VITE_API_BASE || "http://localhost:10000").replace(/\/+$/, "");
+const API_BASE = (import.meta.env.VITE_API_BASE || "https://sonicbridge.onrender.com").replace(/\/+$/, "");
 
 // Decorative dial numbers only - not real broadcast frequencies. Gives each
 // card the "tuner" feel the rest of the UI is built around.
