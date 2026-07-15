@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { lastfmAuth, lastfmScrobble } from "./utils/lastfm";
 
 const API_BASE = (import.meta.env.VITE_API_BASE || "/api").replace(/\/+$/, "");
 
@@ -31,7 +32,118 @@ function StreamUrlRow({ url }) {
   );
 }
 
-function LicenceDisclaimer({ onAccept }) {
+function LastfmModal({ isOpen, onClose, onConnect }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleConnect = async () => {
+    setLoading(true);
+    try {
+      const token = await lastfmAuth.getToken();
+      if (token) {
+        // Open auth window and wait
+        lastfmAuth.getSessionKey(token);
+        // Store token for later retrieval
+        localStorage.setItem("lastfm_token", token);
+        setTimeout(() => {
+          onConnect();
+          onClose();
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("Failed to start Last.fm auth:", error);
+    }
+    setLoading(false);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="disclaimer-overlay" onClick={onClose}>
+      <div className="disclaimer-modal" onClick={(e) => e.stopPropagation()}>
+        <h2>🎵 Connect Last.fm</h2>
+        <p>
+          Enable automatic scrobbling of your BBC Radio listening to Last.fm. Your play history will be saved to your profile.
+        </p>
+        <p>
+          You'll need a Last.fm account. If you don't have one,{" "}
+          <a href="https://www.last.fm/" target="_blank" rel="noopener noreferrer">
+            create one here
+          </a>
+          .
+        </p>
+        <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+          SonicBridge will open Last.fm in a new window for authentication. Please approve the request and return here.
+        </p>
+        <div className="disclaimer-actions">
+          <button
+            className="disclaimer-btn"
+            onClick={handleConnect}
+            disabled={loading}
+            style={{ opacity: loading ? 0.5 : 1 }}
+          >
+            {loading ? "Connecting..." : "Connect Last.fm"}
+          </button>
+          <button
+            className="disclaimer-link"
+            onClick={onClose}
+            style={{ background: "var(--surface-dim)", color: "var(--text-secondary)", cursor: "pointer" }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NowPlayingInfo({ stationId, isPlaying }) {
+  const [trackInfo, setTrackInfo] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isPlaying || !stationId) {
+      setTrackInfo(null);
+      return;
+    }
+
+    setLoading(true);
+    // Fetch from BBC Sounds API
+    const fetchNowPlaying = async () => {
+      try {
+        const response = await fetch(`https://www.bbc.co.uk/sounds/api/stations/${stationId}/nowplaying`, {
+          headers: { Accept: "application/json" },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setTrackInfo(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch now playing info:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNowPlaying();
+    const interval = setInterval(fetchNowPlaying, 30000); // Refresh every 30s
+
+    return () => clearInterval(interval);
+  }, [stationId, isPlaying]);
+
+  if (!trackInfo) return null;
+
+  const title = trackInfo.now?.display_title || trackInfo.now?.title || "Unknown";
+  const description = trackInfo.now?.display_description || trackInfo.now?.description || "";
+
+  return (
+    <div className="now-playing-info">
+      <div className="np-track">
+        <div className="np-track-title">{title}</div>
+        {description && <div className="np-track-desc">{description}</div>}
+      </div>
+    </div>
+  );
+}
   return (
     <div className="disclaimer-overlay">
       <div className="disclaimer-modal">
@@ -74,15 +186,20 @@ function LicenceDisclaimer({ onAccept }) {
 
 export default function App() {
   const [stations, setStations] = useState([]);
-  const [status, setStatus] = useState("loading"); // loading | ready | error
+  const [status, setStatus] = useState("loading");
   const [current, setCurrent] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [volume, setVolume] = useState(0.9);
   const [licenceAccepted, setLicenceAccepted] = useState(false);
+  const [lastfmSessionKey, setLastfmSessionKey] = useState(null);
+  const [showLastfmModal, setShowLastfmModal] = useState(false);
+  const [scrobbleCount, setScrobbleCount] = useState(0);
   const audioRef = useRef(null);
   const retryTimeoutRef = useRef(null);
   const retryCountRef = useRef(0);
+  const scrobbleTimeoutRef = useRef(null);
+  const playStartTimeRef = useRef(null);
 
   // Check for licence acceptance on mount
   useEffect(() => {
@@ -90,11 +207,33 @@ export default function App() {
     if (accepted === "true") {
       setLicenceAccepted(true);
     }
+
+    // Check for Last.fm session
+    const sessionKey = localStorage.getItem("lastfm_session_key");
+    if (sessionKey) {
+      setLastfmSessionKey(sessionKey);
+    }
   }, []);
 
   const handleLicenceAccept = () => {
     localStorage.setItem("sonicbridge_licence_accepted", "true");
     setLicenceAccepted(true);
+  };
+
+  const handleLastfmConnect = async () => {
+    try {
+      const token = localStorage.getItem("lastfm_token");
+      if (token) {
+        const sessionKey = await lastfmAuth.getSession(token);
+        if (sessionKey) {
+          localStorage.setItem("lastfm_session_key", sessionKey);
+          localStorage.removeItem("lastfm_token");
+          setLastfmSessionKey(sessionKey);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to get Last.fm session:", error);
+    }
   };
 
   useEffect(() => {
@@ -173,6 +312,11 @@ export default function App() {
     }
     retryCountRef.current = 0;
     
+    // Clear any pending scrobbles
+    if (scrobbleTimeoutRef.current) {
+      clearTimeout(scrobbleTimeoutRef.current);
+    }
+    
     if (current?.id === station.id) {
       togglePlay();
       return;
@@ -180,12 +324,18 @@ export default function App() {
     setCurrent(station);
     setIsPlaying(true);
     setIsBuffering(true);
+    playStartTimeRef.current = Date.now();
     audio.src = streamUrl(station);
     audio.crossOrigin = "anonymous";
     audio.play().catch(() => {
       setIsBuffering(false);
       retryPlayback(station);
     });
+
+    // Update Last.fm now playing
+    if (lastfmSessionKey && station.name) {
+      lastfmScrobble.updateNowPlaying(station.name, "BBC Radio", station.description, lastfmSessionKey);
+    }
   }
 
   function togglePlay() {
@@ -198,11 +348,24 @@ export default function App() {
         clearTimeout(retryTimeoutRef.current);
         retryCountRef.current = 0;
       }
+
+      // Scrobble on pause if played for at least 30 seconds
+      const playDuration = Date.now() - (playStartTimeRef.current || Date.now());
+      if (lastfmSessionKey && playDuration > 30000) {
+        lastfmScrobble.scrobble(current.name, "BBC Radio", current.description, lastfmSessionKey).then(
+          (success) => {
+            if (success) {
+              setScrobbleCount((c) => c + 1);
+            }
+          }
+        );
+      }
     }
     
     if (audio.paused) {
       setIsPlaying(true);
       setIsBuffering(true);
+      playStartTimeRef.current = Date.now();
       audio.play().catch(() => {
         setIsBuffering(false);
         retryPlayback(current);
@@ -307,6 +470,7 @@ export default function App() {
               <strong>{current.name}</strong>
               <span>{isBuffering ? "buffering…" : isPlaying ? "on air" : "paused"}</span>
             </div>
+            <NowPlayingInfo stationId={current.id} isPlaying={isPlaying} />
             <button className="np-toggle" onClick={togglePlay} aria-label={isPlaying ? "Pause" : "Play"}>
               {isPlaying ? "❚❚" : "▶"}
             </button>
@@ -320,6 +484,17 @@ export default function App() {
               onChange={(e) => setVolume(Number(e.target.value))}
               aria-label="Volume"
             />
+            <button
+              className="np-lastfm"
+              onClick={() => (lastfmSessionKey ? setShowLastfmModal(false) : setShowLastfmModal(true))}
+              title={lastfmSessionKey ? `Last.fm connected (${scrobbleCount} scrobbles)` : "Connect Last.fm"}
+              style={{
+                background: lastfmSessionKey ? "var(--success)" : "var(--surface-dim)",
+                color: lastfmSessionKey ? "white" : "var(--text-secondary)",
+              }}
+            >
+              {lastfmSessionKey ? `🎵 ${scrobbleCount}` : "🎵"}
+            </button>
           </>
         ) : (
           <span className="np-placeholder">Select a station to start listening</span>
@@ -332,6 +507,7 @@ export default function App() {
         </p>
       </div>
       {!licenceAccepted && <LicenceDisclaimer onAccept={handleLicenceAccept} />}
+      <LastfmModal isOpen={showLastfmModal} onClose={() => setShowLastfmModal(false)} onConnect={handleLastfmConnect} />
     </div>
   );
 }

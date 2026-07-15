@@ -360,6 +360,65 @@ body {
   cursor: pointer;
 }
 
+.np-lastfm {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-dim);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.np-lastfm:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+}
+
+.np-lastfm:active {
+  transform: translateY(0);
+}
+
+.now-playing-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  margin: 0 1rem;
+  padding: 0.5rem;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.np-track {
+  min-width: 0;
+}
+
+.np-track-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.np-track-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 0.2rem;
+}
+
 @media (max-width: 768px) {
   .topbar { 
     padding: 1.25rem 1.5rem;
@@ -380,10 +439,21 @@ body {
   }
   .nowplaying {
     padding: 0.75rem 1rem;
-    gap: 0.75rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .nowplaying-active {
+    flex-wrap: nowrap;
   }
   .np-info strong {
     font-size: 0.9rem;
+  }
+  .now-playing-info {
+    display: none;
+  }
+  .np-lastfm {
+    width: 40px;
+    height: 40px;
   }
 }
 
