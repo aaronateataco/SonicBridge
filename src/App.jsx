@@ -144,6 +144,8 @@ function NowPlayingInfo({ stationId, isPlaying }) {
     </div>
   );
 }
+
+function LicenceDisclaimer({ onAccept }) {
   return (
     <div className="disclaimer-overlay">
       <div className="disclaimer-modal">
