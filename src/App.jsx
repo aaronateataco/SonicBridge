@@ -98,18 +98,18 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="dial-mark" aria-hidden="true" />
+          <div className="dial-mark">📻</div>
           <div>
             <h1>SonicBridge</h1>
-            <p className="tagline">BBC Sounds, bridged to anywhere</p>
+            <p className="tagline">BBC Sounds Radio</p>
           </div>
         </div>
         <div className="topbar-hint">
-          Point Navidrome's Internet Radio at any station's stream URL below.
+          Stream BBC Radio to any app or player. Use the stream URLs below with Navidrome, VLC, or your favourite player.
         </div>
       </header>
 
-      <main className="grid-wrap">
+      <main className="grid-wrap" style={{ paddingBottom: '6rem' }}>
         {status === "loading" && <p className="status-msg">Tuning in…</p>}
         {status === "error" && (
           <p className="status-msg status-error">
